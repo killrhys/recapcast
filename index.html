@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ReCapcast Scene Selection</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.css"
+    />
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100vh;
+        background-color: black;
+        font-family: "Courier New", Courier, monospace;
+        color: white;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        overflow: hidden;
+      }
+
+      h1 {
+        font-size: 3rem;
+        color: white;
+        text-shadow: 0 0 15px rgba(255, 255, 255, 0.8);
+      }
+
+      h2 {
+        margin-bottom: 20px;
+        text-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+      }
+
+      .scene-selection {
+        margin-top: 20px;
+        font-size: 1.5rem;
+        color: white;
+      }
+
+      .scene-selection div {
+        margin: 10px 0;
+        text-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+      }
+
+      .selected {
+        color: lime;
+        text-shadow: 0 0 15px lime;
+      }
+
+      .error {
+        color: red;
+        text-shadow: 0 0 15px red;
+      }
+
+      .shake {
+        animation: shake 0.2s;
+        animation-iteration-count: 1;
+      }
+
+      @keyframes shake {
+        0% {
+          transform: translateX(5px);
+        }
+        25% {
+          transform: translateX(-5px);
+        }
+        50% {
+          transform: translateX(5px);
+        }
+        75% {
+          transform: translateX(-5px);
+        }
+        100% {
+          transform: translateX(0px);
+        }
+      }
+
+      #overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: white;
+        z-index: 9999;
+        transition: opacity 4s ease;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      #overlay-text {
+        font-size: 2rem;
+        color: red;
+        text-shadow: 0 0 15px red;
+        font-family: "Courier New", Courier, monospace;
+      }
+
+      .hidden {
+        opacity: 0;
+      }
+
+      canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+        z-index: -1;
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="overlay">
+      <div id="overlay-text">[ PRESS ANY BUTTON ]</div>
+    </div>
+
+    <h1>Welcome to ReCapcast™</h1>
+    <h2>Scene selection</h2>
+
+    <div class="scene-selection" id="scene-selection">
+      <div id="scene-0" class="scene">[Birth]</div>
+      <div id="scene-1" class="scene">[First words]</div>
+      <div id="scene-2" class="scene">[First day of school]</div>
+      <div id="scene-3" class="scene">[First kiss]</div>
+      <div id="scene-4" class="scene">[Summer 2009 trip]</div>
+      <div id="scene-5" class="scene">[First job]</div>
+      <div id="scene-6" class="scene">[College graduation]</div>
+    </div>
+
+    <div id="player"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.1/howler.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+      let alreadyPlaying = false;
+
+      function playBackgroundMusic() {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioCtx.createBufferSource();
+        const xhr = new XMLHttpRequest();
+        xhr.open("GET", "assets/recapcast_welcome.mp3", true);
+        xhr.responseType = "arraybuffer";
+        alreadyPlaying = true;
+
+        xhr.onload = function () {
+          audioCtx.decodeAudioData(xhr.response, function (buffer) {
+            source.buffer = buffer;
+            source.connect(audioCtx.destination);
+            source.loop = true;
+            source.start(0);
+          });
+        };
+        xhr.send();
+      }
+
+      function hideOverlayAndPlayMusic() {
+        if (alreadyPlaying) return;
+        const overlay = document.getElementById("overlay");
+        overlay.classList.add("hidden");
+        playBackgroundMusic();
+      }
+
+      window.addEventListener("click", hideOverlayAndPlayMusic, { once: true });
+      window.addEventListener("keydown", hideOverlayAndPlayMusic, { once: true });
+
+      const scenes = document.querySelectorAll(".scene");
+      let currentIndex = 0;
+      let errorSound = new Howl({ src: ["assets/error.mp3"] });
+
+      function resetScenes() {
+        scenes.forEach((scene) => {
+          scene.classList.remove("selected");
+          scene.classList.remove("error");
+        });
+      }
+
+      function updateSelection() {
+        resetScenes();
+        scenes[currentIndex].classList.add("selected");
+      }
+
+      function showError() {
+        resetScenes();
+        scenes[currentIndex].classList.add("error");
+        document.body.classList.add("shake");
+
+        setTimeout(() => {
+          scenes[currentIndex].classList.remove("error");
+          updateSelection();
+          document.body.classList.remove("shake");
+        }, 200);
+
+        errorSound.play();
+      }
+
+      document.addEventListener("keydown", function (event) {
+        if (event.key === "ArrowUp") {
+          currentIndex = currentIndex > 0 ? currentIndex - 1 : scenes.length - 1;
+          updateSelection();
+        } else if (event.key === "ArrowDown") {
+          currentIndex = currentIndex < scenes.length - 1 ? currentIndex + 1 : 0;
+          updateSelection();
+        } else if (event.key === "Enter") {
+          showError();
+        }
+      });
+
+      let scene, camera, renderer, material, crtMesh, clock;
+
+      function initCRT() {
+        scene = new THREE.Scene();
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.z = 1;
+
+        renderer = new THREE.WebGLRenderer({ alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        clock = new THREE.Clock();
+
+        const loader = new THREE.TextureLoader();
+        const texture = loader.load("assets/image.png");
+
+        const crtShader = {
+          uniforms: {
+            tDiffuse: { value: texture },
+            time: { value: 0.0 },
+            resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+          },
+          vertexShader: `
+          varying vec2 vUv;
+          void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+          fragmentShader: `
+          uniform sampler2D tDiffuse;
+          uniform float time;
+          uniform vec2 resolution;
+          varying vec2 vUv;
+
+          float curveAmount = 0.02;
+          float scanlineIntensity = 0.05;
+          float noiseIntensity = 0.015;
+          float flickerIntensity = 0.01;
+          float brightness = 0.9;
+
+          vec2 curveScreen(vec2 uv) {
+            uv = uv * 2.0 - 1.0;
+            uv *= vec2(1.0 + curveAmount * (uv.x * uv.x), 1.0 + curveAmount * (uv.y * uv.y));
+            uv = (uv + 1.0) / 2.0;
+            return uv;
+          }
+
+          vec3 applyScanlines(vec2 uv, vec3 color) {
+            float scanline = sin(uv.y * resolution.y * 1.5) * scanlineIntensity;
+            color.rgb -= scanline;
+            return color;
+          }
+
+          float rand(vec2 co) {
+            return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453);
+          }
+
+          void main() {
+            vec2 uv = vUv;
+            uv = curveScreen(uv);
+
+            vec3 color = texture2D(tDiffuse, uv).rgb;
+
+            color = applyScanlines(uv, color);
+            color += rand(uv + time) * noiseIntensity;
+            color += sin(time * 50.0) * flickerIntensity;
+
+            color *= brightness;
+
+            gl_FragColor = vec4(color, 1.0);
+          }
+        `,
+        };
+
+        const geometry = new THREE.PlaneGeometry(2, 2);
+        material = new THREE.ShaderMaterial({
+          uniforms: crtShader.uniforms,
+          vertexShader: crtShader.vertexShader,
+          fragmentShader: crtShader.fragmentShader,
+        });
+
+        crtMesh = new THREE.Mesh(geometry, material);
+        scene.add(crtMesh);
+
+        animateCRT();
+      }
+
+      function animateCRT() {
+        requestAnimationFrame(animateCRT);
+        material.uniforms.time.value = clock.getElapsedTime();
+        renderer.render(scene, camera);
+      }
+
+      window.addEventListener("resize", () => {
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        material.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
+      });
+
+      initCRT();
+    </script>
+  </body>
+</html>
